@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore,useEffect } from "react";
 import { CreateWorkOrderModal } from "@/components/create-work-order-modal";
 import {
   applyStatusChange,
@@ -15,6 +15,7 @@ import {
   getWorkOrdersClientSnapshot,
   getWorkOrdersServerSnapshot,
   setWorkOrders,
+  initializeWorkOrders,
   subscribeClientReady,
   subscribeWorkOrders,
 } from "@/lib/work-order-store";
@@ -25,13 +26,15 @@ import type {
   WorkOrderStatus,
 } from "@/types/work-order";
 
+import {Plus,Package} from "lucide-react"
+
 const navItems = [
   { label: "Overview", href: "#", active: true, icon: "grid" },
   { label: "Work Orders", href: "#", active: false, icon: "clipboard" },
   { label: "Assets", href: "#", active: false, icon: "box" },
-  { label: "AI Reports", href: "#", active: false, icon: "sparkles" },
-  { label: "Settings", href: "#", active: false, icon: "cog" },
+  { label: "Work Reports", href: "#", active: false, icon: "clipboard" },
 ] as const;
+
 
 const equipmentAttention = [
   { name: "Air Compressor AC-401", condition: "Critical", detail: "Vibration above threshold" },
@@ -86,19 +89,6 @@ function NavIcon({ name }: { name: (typeof navItems)[number]["icon"] }) {
       return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-        </svg>
-      );
-    case "sparkles":
-      return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
-        </svg>
-      );
-    case "cog":
-      return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       );
   }
@@ -222,6 +212,9 @@ export function OperationsDashboard() {
     getClientReadySnapshot,
     getClientReadyServerSnapshot,
   );
+  useEffect(() => {
+    void initializeWorkOrders();
+  }, []);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | WorkOrderStatus>("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | WorkOrderPriority>("all");
@@ -234,6 +227,137 @@ export function OperationsDashboard() {
   const [reportError, setReportError] = useState<string | null>(null);
   const [generatedReport, setGeneratedReport] = useState<string | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [activePage, setActivePage] = useState("Overview");
+
+const [assets, setAssets] = useState<AssetRecord[]>([]);
+const [assetsLoading, setAssetsLoading] = useState(false);
+const [assetsError, setAssetsError] = useState<string | null>(null);
+
+const [showAssetForm, setShowAssetForm] = useState(false);
+const [assetSaving, setAssetSaving] = useState(false);
+const [assetFormError, setAssetFormError] = useState<string | null>(null);
+
+const [assetForm, setAssetForm] = useState({
+  assetTag: "",
+  name: "",
+  category: "",
+  location: "",
+});
+
+
+
+  type AssetRecord = {
+    id: string;
+    assetTag: string;
+    name: string;
+    category: string;
+    location: string;
+    status: string;
+    lastMaintenanceAt: string | null;
+    nextMaintenanceAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+    _count: {
+      workOrders: number;
+      reports: number;
+    };
+  };
+  
+
+type SavedMaintenanceReport = {
+  id: string;
+  title: string;
+  notes: string;
+  reportText: string;
+  priority: string;
+  createdAt: string;
+};
+
+const [savedReports, setSavedReports] = useState<SavedMaintenanceReport[]>([]);
+const [reportsLoading, setReportsLoading] = useState(false);
+const [reportsError, setReportsError] = useState<string | null>(null);
+
+useEffect(() => {
+  if (activePage !== "Work Reports") return;
+
+
+  
+
+  let cancelled = false;
+
+  async function loadReports() {
+    setReportsLoading(true);
+    setReportsError(null);
+
+    try {
+      const response = await fetch("/api/maintenance-reports");
+
+      if (!response.ok) {
+        throw new Error("Failed to load reports");
+      }
+
+      const data: SavedMaintenanceReport[] = await response.json();
+
+      if (!cancelled) {
+        setSavedReports(data);
+      }
+    } catch {
+      if (!cancelled) {
+        setReportsError("Could not load saved reports. Please try again.");
+      }
+    } finally {
+      if (!cancelled) {
+        setReportsLoading(false);
+      }
+    }
+  }
+
+  void loadReports();
+
+  return () => {
+    cancelled = true;
+  };
+}, [activePage]);
+
+
+useEffect(() => {
+  if (activePage !== "Assets") return;
+  
+    let cancelled = false;
+  
+    async function loadAssets() {
+      setAssetsLoading(true);
+      setAssetsError(null);
+  
+      try {
+        const response = await fetch("/api/assets");
+  
+        if (!response.ok) {
+          throw new Error("Failed to load assets");
+        }
+  
+        const data: AssetRecord[] = await response.json();
+  
+        if (!cancelled) {
+          setAssets(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setAssetsError("Could not load assets. Please try again.");
+        }
+      } finally {
+        if (!cancelled) {
+          setAssetsLoading(false);
+        }
+      }
+    }
+  
+    void loadAssets();
+  
+    return () => {
+      cancelled = true;
+    };
+  }, [activePage]);
 
   const todayLabel = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -359,22 +483,27 @@ export function OperationsDashboard() {
             </div>
           </div>
         </div>
-        <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
-          {navItems.map((item) => (
-            <a
-              key={item.label}
-              href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                item.active
-                  ? "bg-white/10 text-white ring-1 ring-white/10"
-                  : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
-              }`}
-            >
-              <NavIcon name={item.icon} />
-              {item.label}
-            </a>
-          ))}
-        </nav>
+        
+<nav className="flex flex-1 flex-col gap-1 px-3 py-4">
+  {navItems.map((item) => (
+    <a
+      key={item.label}
+      href={item.href}
+      onClick={(event) => {
+        event.preventDefault();
+        setActivePage(item.label);
+      }}
+      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+        activePage === item.label
+          ? "bg-white/10 text-white ring-1 ring-white/10"
+          : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
+      }`}
+    >
+      <NavIcon name={item.icon} />
+      {item.label}
+    </a>
+  ))}
+</nav>
         <div className="border-t border-white/10 px-6 py-4 text-xs text-slate-500">
           Plant North · Demo environment
         </div>
@@ -401,7 +530,15 @@ export function OperationsDashboard() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-xl font-semibold tracking-tight text-[#0c1929] sm:text-2xl">
-                Operations Overview
+              {activePage === "Overview"
+  ? "Operations Overview"
+  : activePage === "Work Orders"
+    ? "Work Orders"
+    : activePage === "Assets"
+      ? "Asset Management"
+      : activePage === "Work Reports"
+        ? "Saved Work Reports"
+        : activePage}
               </h1>
               <p className="mt-0.5 text-sm text-slate-500">{todayLabel}</p>
             </div>
@@ -428,6 +565,294 @@ export function OperationsDashboard() {
         </header>
 
         <main className="flex-1 space-y-6 p-4 sm:p-6 lg:p-8">
+
+{activePage === "Work Reports" && (
+  <section className="space-y-6">
+    <div>
+      <h2 className="text-2xl font-semibold text-[#0c1929]">
+        Saved Work Reports
+      </h2>
+      <p className="mt-1 text-sm text-slate-500">
+        Maintenance reports saved in your database.
+      </p>
+    </div>
+
+    {reportsLoading ? (
+      <p className="rounded-xl bg-white p-6 text-sm text-slate-500">
+        Loading saved reports…
+      </p>
+    ) : reportsError ? (
+      <p className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+        {reportsError}
+      </p>
+    ) : savedReports.length === 0 ? (
+      <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
+        <h3 className="font-semibold text-[#0c1929]">
+          No saved reports yet
+        </h3>
+        <p className="mt-2 text-sm text-slate-500">
+          Generate an AI maintenance report first, then return here.
+        </p>
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {savedReports.map((report) => (
+          <article
+            key={report.id}
+            className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="font-semibold text-[#0c1929]">
+                  {report.title || "Maintenance Report"}
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  {new Date(report.createdAt).toLocaleString()}
+                </p>
+              </div>
+              <span className="w-fit rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                {report.priority}
+              </span>
+            </div>
+
+            <details className="mt-4">
+              <summary className="cursor-pointer text-sm font-medium text-amber-700">
+                View full report and original notes
+              </summary>
+              <div className="mt-4 space-y-4 border-t border-slate-100 pt-4">
+                <div>
+                  <h4 className="text-sm font-semibold">Original Notes</h4>
+                  <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">
+                    {report.notes}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold">AI-Generated Report</h4>
+                  <div className="mt-2 whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+                    {report.reportText}
+                  </div>
+                </div>
+              </div>
+            </details>
+          </article>
+        ))}
+      </div>
+    )}
+  </section>
+  
+)}
+{activePage === "Assets" && (
+  <section className="space-y-6">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 className="text-2xl font-semibold text-[#0c1929]">
+          Asset Inventory
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Track equipment, locations, and maintenance schedules.
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+        <p className="text-sm text-slate-500">Total Assets</p>
+        <p className="text-2xl font-semibold text-[#0c1929]">
+          {assets.length}
+        </p>
+      </div>
+      <button
+  type="button"
+  onClick={() => {
+    setAssetFormError(null);
+    setShowAssetForm(true);
+  }}
+  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0c1929] px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+>
+  <Plus className="h-4 w-4" />
+  Add Asset
+</button>
+    </div>
+    {showAssetForm && (
+  <form
+    onSubmit={async (event) => {
+      event.preventDefault();
+      setAssetSaving(true);
+      setAssetFormError(null);
+
+      try {
+        const response = await fetch("/api/assets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(assetForm),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to create asset.");
+        }
+
+        setAssets((current) => [data, ...current]);
+        setAssetForm({
+          assetTag: "",
+          name: "",
+          category: "",
+          location: "",
+        });
+        setShowAssetForm(false);
+      } catch (error) {
+        setAssetFormError(
+          error instanceof Error
+            ? error.message
+            : "Could not create asset. Please try again.",
+        );
+      } finally {
+        setAssetSaving(false);
+      }
+    }}
+    className="space-y-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+  >
+    <div>
+      <h3 className="text-lg font-semibold text-[#0c1929]">
+        Register New Asset
+      </h3>
+      <p className="mt-1 text-sm text-slate-500">
+        Enter the equipment details below.
+      </p>
+    </div>
+
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {(
+        [
+          ["assetTag", "Asset Tag", "e.g. AC-401"],
+          ["name", "Asset Name", "e.g. Air Compressor"],
+          ["category", "Category", "e.g. Mechanical"],
+          ["location", "Location", "e.g. Plant Room A"],
+        ] as const
+      ).map(([field, label, placeholder]) => (
+        <label key={field} className="space-y-2">
+          <span className="block text-sm font-medium text-slate-700">
+            {label}
+          </span>
+          <input
+            required
+            value={assetForm[field]}
+            onChange={(event) =>
+              setAssetForm((current) => ({
+                ...current,
+                [field]: event.target.value,
+              }))
+            }
+            placeholder={placeholder}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+          />
+        </label>
+      ))}
+    </div>
+
+    {assetFormError && (
+      <p className="text-sm text-red-600">{assetFormError}</p>
+    )}
+
+    <div className="flex flex-wrap justify-end gap-3">
+      <button
+        type="button"
+        disabled={assetSaving}
+        onClick={() => {
+          setShowAssetForm(false);
+          setAssetFormError(null);
+        }}
+        className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+      >
+        Cancel
+      </button>
+
+      <button
+        type="submit"
+        disabled={assetSaving}
+        className="rounded-lg bg-[#0c1929] px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+      >
+        {assetSaving ? "Saving..." : "Save Asset"}
+      </button>
+    </div>
+  </form>
+)}
+
+    {assetsLoading ? (
+      <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+        Loading assets...
+      </div>
+    ) : assetsError ? (
+      <div className="rounded-xl border border-red-200 bg-white p-8 text-center text-sm text-red-600">
+        {assetsError}
+      </div>
+    ) : assets.length === 0 ? (
+      <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100">
+          <Package className="h-6 w-6 text-slate-500" />
+        </div>
+        <h3 className="mt-4 text-base font-semibold text-[#0c1929]">
+          No assets yet
+        </h3>
+        <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+          Your equipment inventory is empty. Add assets to start tracking
+          equipment details and maintenance activity.
+        </p>
+      </div>
+    ) : (
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <table className="w-full min-w-[900px] text-left text-sm">
+          <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
+            <tr>
+              <th className="px-5 py-4 font-medium">Asset Tag</th>
+              <th className="px-5 py-4 font-medium">Asset Name</th>
+              <th className="px-5 py-4 font-medium">Category</th>
+              <th className="px-5 py-4 font-medium">Location</th>
+              <th className="px-5 py-4 font-medium">Status</th>
+              <th className="px-5 py-4 font-medium">Work Orders</th>
+              <th className="px-5 py-4 font-medium">Reports</th>
+              <th className="px-5 py-4 font-medium">Next Maintenance</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {assets.map((asset) => (
+              <tr key={asset.id} className="hover:bg-slate-50">
+                <td className="px-5 py-4 font-medium text-[#0c1929]">
+                  {asset.assetTag}
+                </td>
+                <td className="px-5 py-4 text-slate-700">{asset.name}</td>
+                <td className="px-5 py-4 text-slate-600">{asset.category}</td>
+                <td className="px-5 py-4 text-slate-600">{asset.location}</td>
+                <td className="px-5 py-4">
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                    {asset.status.replaceAll("_", " ")}
+                  </span>
+                </td>
+                <td className="px-5 py-4 text-slate-600">
+                  {asset._count.workOrders}
+                </td>
+                <td className="px-5 py-4 text-slate-600">
+                  {asset._count.reports}
+                </td>
+                <td className="px-5 py-4 text-slate-600">
+                  {asset.nextMaintenanceAt
+                    ? new Date(asset.nextMaintenanceAt).toLocaleDateString()
+                    : "Not scheduled"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </section>
+)}
+<div
+  className={
+    activePage === "Work Reports" || activePage === "Assets"
+      ? "hidden"
+      : "contents"
+  }
+>
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {summaryCards.map((card) => (
               <article
@@ -451,11 +876,14 @@ export function OperationsDashboard() {
           </section>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-            <section className="xl:col-span-2">
-              <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+          <section
+  className={`xl:col-span-2 ${
+    activePage === "Work Orders" ? "xl:col-span-3" : ""
+  }`}
+>              <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
                 <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <h2 className="text-base font-semibold text-[#0c1929]">Recent Work Orders</h2>
+                    <h2 className="text-base font-semibold text-[#0c1929]">{activePage === "All Work Orders" ?"Work Orders":"Recent Work Orders"}</h2>
                     <p className="text-sm text-slate-500">Latest maintenance jobs across the facility</p>
                   </div>
                   <button
@@ -586,8 +1014,9 @@ export function OperationsDashboard() {
               </div>
             </section>
 
-            <aside className="flex flex-col gap-6">
-              <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm">
+            {activePage !== "Work Orders" && (
+  <aside className="flex flex-col gap-6">
+                  <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm">
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[#0c1929]">
                   <svg className="h-5 w-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
@@ -675,7 +1104,9 @@ export function OperationsDashboard() {
                 </ul>
               </div>
             </aside>
+            )}
           </div>
+</div>
         </main>
       </div>
 

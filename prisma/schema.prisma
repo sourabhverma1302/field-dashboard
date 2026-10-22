@@ -1,0 +1,97 @@
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AssetStatus {
+  OPERATIONAL
+  NEEDS_MAINTENANCE
+  OUT_OF_SERVICE
+}
+
+enum WorkOrderStatus {
+  OPEN
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Asset {
+  id                String      @id @default(cuid())
+  assetTag          String      @unique
+  name              String
+  category          String
+  location          String
+  status            AssetStatus @default(OPERATIONAL)
+  lastMaintenanceAt DateTime?
+  nextMaintenanceAt DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  workOrders WorkOrder[]
+  reports    MaintenanceReport[]
+}
+
+model WorkOrder {
+  id          String            @id @default(cuid())
+  title       String
+  description String            @db.Text
+  priority    MaintenancePriority @default(MEDIUM)
+  status      WorkOrderStatus   @default(OPEN)
+  dueDate     DateTime?
+  completedAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  jobId     String @unique
+  assetName String @default("")
+
+  assetId String?
+  asset   Asset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  reports MaintenanceReport[]
+  site                String   @default("")
+  assignedTechnician  String   @default("")
+
+  @@index([status])
+  @@index([priority])
+  @@index([assetId])
+}
+
+model MaintenanceReport {
+  id          String              @id @default(cuid())
+  title       String
+  notes       String              @db.Text
+  reportText  String              @db.Text
+  priority    MaintenancePriority @default(MEDIUM)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  assetId     String?
+  asset       Asset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  workOrderId String?
+  workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([priority])
+}
+
+model AppSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
